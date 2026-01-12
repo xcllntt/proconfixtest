@@ -7,6 +7,13 @@ export async function POST(request: Request) {
     const body = await request.json()
     const { dilemma_text, decision_type, option_a_name, option_b_name } = body
 
+    console.log("[v0] API POST /api/decisions - received body:", {
+      dilemma_text,
+      decision_type,
+      option_a_name,
+      option_b_name,
+    })
+
     if (!dilemma_text || !decision_type) {
       return NextResponse.json({ error: "Missing required fields" }, { status: 400 })
     }
@@ -30,12 +37,16 @@ export async function POST(request: Request) {
       .single()
 
     if (decisionError) {
-      console.error("Error creating decision:", decisionError)
-      return NextResponse.json({ error: "Failed to create decision" }, { status: 500 })
+      console.error("[v0] Error creating decision in Supabase:", decisionError)
+      return NextResponse.json({ error: `Database error: ${decisionError.message}` }, { status: 500 })
     }
+
+    console.log("[v0] Decision created successfully:", decision.id)
 
     // Generate clarifying questions using AI
     const questions = await generateClarifyingQuestions(dilemma_text, decision_type, option_a_name, option_b_name)
+
+    console.log("[v0] Generated questions:", questions)
 
     // Store questions in database
     const questionsToInsert = questions.map((question, index) => ({
@@ -50,16 +61,19 @@ export async function POST(request: Request) {
       .select()
 
     if (questionsError) {
-      console.error("Error saving questions:", questionsError)
-      return NextResponse.json({ error: "Failed to save clarifying questions" }, { status: 500 })
+      console.error("[v0] Error saving questions:", questionsError)
+      return NextResponse.json({ error: `Database error: ${questionsError.message}` }, { status: 500 })
     }
+
+    console.log("[v0] Questions saved successfully")
 
     return NextResponse.json({
       decision_id: decision.id,
       questions: savedQuestions,
     })
   } catch (error) {
-    console.error("API error:", error)
-    return NextResponse.json({ error: "Internal server error" }, { status: 500 })
+    console.error("[v0] API error:", error)
+    const errorMessage = error instanceof Error ? error.message : "Internal server error"
+    return NextResponse.json({ error: errorMessage }, { status: 500 })
   }
 }
