@@ -5,6 +5,7 @@ import type React from "react"
 import { useDecision } from "@/lib/decision-context"
 import { Button } from "@/components/ui/button"
 import { Scale, ArrowRight, Brain, ListChecks, Sparkles } from "lucide-react"
+import { ProconLogo } from "@/components/procon-logo"
 
 export function LandingScreen() {
   const { setCurrentStep } = useDecision()
@@ -14,7 +15,7 @@ export function LandingScreen() {
       {/* Header */}
       <header className="flex items-center justify-between px-6 py-4 border-b border-border/50">
         <div className="flex items-center gap-2">
-          <Scale className="h-6 w-6 text-primary" />
+          <ProconLogo size={28} />
           <span className="text-xl font-semibold text-foreground">Procon</span>
         </div>
       </header>
