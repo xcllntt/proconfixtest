@@ -29,9 +29,9 @@ Your questions should:
 4. Challenge assumptions they might be making about their particular dilemma
 5. Consider perspectives and stakeholders relevant to their situation
 
-Generate exactly 5 clarifying questions tailored to their specific dilemma. Each question should be meaningful to their situation and help them understand what matters most to them.
+First, determine how many clarifying questions are truly necessary to gather sufficient context (between 2-5 questions). Generate only that many questions - if 2-3 well-crafted questions are enough, don't force more. Generate clarifying questions tailored to their specific dilemma. Each question should be meaningful to their situation and help them understand what matters most to them.
 
-Format as a numbered list (1., 2., 3., 4., 5.) with just the questions, no additional text.`
+Format as a numbered list with just the questions, no additional text.`
 
   try {
     const response = await fetch(HF_API_URL, {
@@ -67,7 +67,6 @@ Format as a numbered list (1., 2., 3., 4., 5.) with just the questions, no addit
       generatedText = data.choices[0].message.content
     }
 
-    // Extract questions from the numbered list
     const questionMatches = generatedText.match(/\d+\.\s*(.+?)(?=\n|$)/g)
     if (!questionMatches) {
       console.warn("[v0] Could not parse questions from response:", generatedText)
@@ -77,7 +76,7 @@ Format as a numbered list (1., 2., 3., 4., 5.) with just the questions, no addit
     const questions = questionMatches
       .map((match) => match.replace(/^\d+\.\s*/, "").trim())
       .filter((q) => q.length > 0)
-      .slice(0, 5)
+      .slice(0, 5) // Allow up to 5 questions instead of exactly 5
 
     return questions.length > 0 ? questions : ["Failed to generate clarifying questions. Please try again."]
   } catch (error) {
