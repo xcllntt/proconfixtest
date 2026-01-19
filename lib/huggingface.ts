@@ -1,5 +1,5 @@
-const HF_MODEL = "google/gemma-2-2b-it"
-const HF_API_URL = `https://router.huggingface.co/v1/chat/completions`
+const HF_MODEL = "mistralai/Mistral-7B-Instruct-v0.3"
+const HF_API_URL = `https://router.huggingface.co/hf-inference/models/${HF_MODEL}`
 
 export async function generateClarifyingQuestions(
   dilemmaText: string,
@@ -41,69 +41,58 @@ Format as a numbered list with just the questions, no additional text.`
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        model: HF_MODEL,
-        messages: [
-          {
-            role: "user",
-            content: prompt,
-          },
-        ],
-        max_tokens: 500,
-        temperature: 0.7,
+        inputs: prompt,
+        parameters: {
+          max_new_tokens: 500,
+          temperature: 0.7,
+        },
       }),
     })
 
     if (!response.ok) {
-      const errorData = await response.json()
-      console.error("[v0] HF API error:", errorData)
+      const error = await response.json()
+      console.error("[v0] HF API error:", error)
       throw new Error(`Hugging Face API error: ${response.status}`)
     }
 
     const data = await response.json()
-    console.log("[v0] HF response:", data)
+    const generatedText = Array.isArray(data) 
+      ? (data[0]?.generated_text || "").replace(prompt, "").trim()
+      : (data?.generated_text || "").replace(prompt, "").trim()
 
-    let generatedText = ""
-    if (data.choices && data.choices[0]?.message?.content) {
-      generatedText = data.choices[0].message.content
-    }
+    console.log("[v0] Generated text:", generatedText)
 
-    const questionMatches = generatedText.match(/\d+\.\s*(.+?)(?=\n|$)/g)
-    if (!questionMatches) {
-      console.warn("[v0] Could not parse questions from response:", generatedText)
+    // Try to match numbered questions with flexible formatting
+    const questionMatches = generatedText.match(/\d+[\.\)]\s*(.+?)(?=\n\d+[\.\)]|\n\n|$)/gs)
+
+    if (!questionMatches || questionMatches.length === 0) {
+      console.warn("[v0] Could not parse questions from response. Trying fallback parsing...")
+      // Fallback: split by newlines and filter for non-empty lines that look like questions
+      const lines = generatedText.split("\n").filter((line) => line.trim().length > 0)
+      const questions = lines
+        .map((line) => line.replace(/^\d+[\.\)]\s*/, "").trim())
+        .filter((q) => q.length > 0 && q.includes("?"))
+
+      if (questions.length > 0) {
+        console.log("[v0] Parsed questions via fallback:", questions)
+        return questions.slice(0, 5)
+      }
+
       return ["Failed to generate clarifying questions. Please try again."]
     }
 
     const questions = questionMatches
-      .map((match) => match.replace(/^\d+\.\s*/, "").trim())
+      .map((match) => match.replace(/^\d+[\.\)]\s*/, "").trim())
       .filter((q) => q.length > 0)
-      .slice(0, 5) // Allow up to 5 questions instead of exactly 5
+      .slice(0, 5)
 
+    console.log("[v0] Parsed questions:", questions)
     return questions.length > 0 ? questions : ["Failed to generate clarifying questions. Please try again."]
   } catch (error) {
     console.error("[v0] Error generating clarifying questions:", error)
     return ["Failed to generate clarifying questions. Please try again."]
   }
 }
-
-// function generateDefaultQuestions(decisionType: string): string[] {
-//   if (decisionType === "TWO_OPTION") {
-//     return [
-//       "What are the most important factors in making this decision?",
-//       "How would each option affect your long-term goals?",
-//       "What could go wrong with each option, and how would you handle it?",
-//       "Is there a third option you haven't considered?",
-//       "How would you feel about each decision a year from now?",
-//     ]
-//   } else {
-//     return [
-//       "What would be the consequences of saying yes?",
-//       "What would be the consequences of saying no?",
-//       "What information do you still need to make this decision?",
-//       "Are there any external factors that might change your answer?",
-//       "How does this align with your personal values?",
-//     ]
-//   }
-// }
 
 export async function generateInitialAnalysis(
   dilemmaText: string,
@@ -134,12 +123,16 @@ Format as:
 PROS:
 1. [pro]
 2. [pro]
-... etc
+3. [pro]
+4. [pro]
+5. [pro]
 
 CONS:
 1. [con]
 2. [con]
-... etc`
+3. [con]
+4. [con]
+5. [con]`
       : `Based on this yes/no decision:
 Dilemma: ${dilemmaText}
 
@@ -152,12 +145,16 @@ Format as:
 PROS:
 1. [pro]
 2. [pro]
-... etc
+3. [pro]
+4. [pro]
+5. [pro]
 
 CONS:
 1. [con]
 2. [con]
-... etc`
+3. [con]
+4. [con]
+5. [con]`
 
   try {
     const response = await fetch(HF_API_URL, {
@@ -168,13 +165,8 @@ CONS:
       },
       body: JSON.stringify({
         model: HF_MODEL,
-        messages: [
-          {
-            role: "user",
-            content: prompt,
-          },
-        ],
-        max_tokens: 800,
+        prompt: prompt,
+        max_new_tokens: 800,
         temperature: 0.7,
       }),
     })
@@ -184,10 +176,9 @@ CONS:
     }
 
     const data = await response.json()
-    let generatedText = ""
-    if (data.choices && data.choices[0]?.message?.content) {
-      generatedText = data.choices[0].message.content
-    }
+    const generatedText = Array.isArray(data) 
+      ? (data[0]?.generated_text || "").replace(prompt, "").trim()
+      : (data?.generated_text || "").replace(prompt, "").trim()
 
     // Parse pros and cons
     const prosMatch = generatedText.match(/PROS:([\s\S]*?)(?=CONS:|$)/i)
@@ -197,8 +188,8 @@ CONS:
       if (!text) return []
       return text
         .split("\n")
-        .filter((line) => /^\d+\.\s*/.test(line.trim()))
-        .map((line) => line.replace(/^\d+\.\s*/, "").trim())
+        .filter((line) => /^\d+[\.\)]\s*/.test(line.trim()))
+        .map((line) => line.replace(/^\d+[\.\)]\s*/, "").trim())
         .filter((item) => item.length > 0)
     }
 
@@ -215,46 +206,6 @@ CONS:
       pros: generateDefaultPros(decisionType),
       cons: generateDefaultCons(decisionType),
     }
-  }
-}
-
-function generateDefaultPros(decisionType: string): string[] {
-  if (decisionType === "TWO_OPTION") {
-    return [
-      "Potential for growth and new experiences",
-      "Aligns with long-term goals",
-      "Could improve quality of life",
-      "Opportunity to develop new skills",
-      "May increase financial security",
-    ]
-  } else {
-    return [
-      "Opens up new possibilities",
-      "Could lead to positive outcomes",
-      "Aligns with your values",
-      "Opportunity for growth",
-      "May bring satisfaction",
-    ]
-  }
-}
-
-function generateDefaultCons(decisionType: string): string[] {
-  if (decisionType === "TWO_OPTION") {
-    return [
-      "Uncertainty about outcomes",
-      "Potential financial risks",
-      "Could require significant adjustment",
-      "May strain relationships",
-      "Opportunity cost of not choosing the other option",
-    ]
-  } else {
-    return [
-      "Potential for unforeseen consequences",
-      "May create uncertainty",
-      "Could involve risk",
-      "Might require significant commitment",
-      "Possible negative outcomes",
-    ]
   }
 }
 
@@ -328,13 +279,8 @@ NEXT_STEPS:
       },
       body: JSON.stringify({
         model: HF_MODEL,
-        messages: [
-          {
-            role: "user",
-            content: prompt,
-          },
-        ],
-        max_tokens: 1000,
+        prompt: prompt,
+        max_new_tokens: 1000,
         temperature: 0.7,
       }),
     })
@@ -344,10 +290,9 @@ NEXT_STEPS:
     }
 
     const data = await response.json()
-    let generatedText = ""
-    if (data.choices && data.choices[0]?.message?.content) {
-      generatedText = data.choices[0].message.content
-    }
+    const generatedText = Array.isArray(data) 
+      ? (data[0]?.generated_text || "").replace(prompt, "").trim()
+      : (data?.generated_text || "").replace(prompt, "").trim()
 
     // Parse response
     const summaryMatch = generatedText.match(/SUMMARY:\s*(.+?)(?=RECOMMENDATION:|$)/i)
@@ -382,15 +327,6 @@ NEXT_STEPS:
       ],
     }
   }
-}
-
-function extractItems(text: string | undefined): string[] {
-  if (!text) return []
-  return text
-    .split("\n")
-    .filter((line) => /^\d+\.\s*/.test(line.trim()))
-    .map((line) => line.replace(/^\d+\.\s*/, "").trim())
-    .filter((item) => item.length > 0)
 }
 
 export async function generateYesNoAnalysis(
@@ -436,13 +372,8 @@ CONS:
       },
       body: JSON.stringify({
         model: HF_MODEL,
-        messages: [
-          {
-            role: "user",
-            content: prompt,
-          },
-        ],
-        max_tokens: 800,
+        prompt: prompt,
+        max_new_tokens: 800,
         temperature: 0.7,
       }),
     })
@@ -452,10 +383,9 @@ CONS:
     }
 
     const data = await response.json()
-    let generatedText = ""
-    if (data.choices && data.choices[0]?.message?.content) {
-      generatedText = data.choices[0].message.content
-    }
+    const generatedText = Array.isArray(data) 
+      ? (data[0]?.generated_text || "").replace(prompt, "").trim()
+      : (data?.generated_text || "").replace(prompt, "").trim()
 
     const prosMatch = generatedText.match(/PROS:([\s\S]*?)(?=CONS:|$)/i)
     const consMatch = generatedText.match(/CONS:([\s\S]*?)$/i)
@@ -540,13 +470,8 @@ OPTION_B_CONS:
       },
       body: JSON.stringify({
         model: HF_MODEL,
-        messages: [
-          {
-            role: "user",
-            content: prompt,
-          },
-        ],
-        max_tokens: 1200,
+        prompt: prompt,
+        max_new_tokens: 800,
         temperature: 0.7,
       }),
     })
@@ -556,10 +481,9 @@ OPTION_B_CONS:
     }
 
     const data = await response.json()
-    let generatedText = ""
-    if (data.choices && data.choices[0]?.message?.content) {
-      generatedText = data.choices[0].message.content
-    }
+    const generatedText = Array.isArray(data) 
+      ? (data[0]?.generated_text || "").replace(prompt, "").trim()
+      : (data?.generated_text || "").replace(prompt, "").trim()
 
     const optionAProsMatch = generatedText.match(/OPTION_A_PROS:([\s\S]*?)(?=OPTION_A_CONS:|$)/i)
     const optionAConsMatch = generatedText.match(/OPTION_A_CONS:([\s\S]*?)(?=OPTION_B_PROS:|$)/i)
@@ -650,13 +574,8 @@ NEXT_STEPS:
       },
       body: JSON.stringify({
         model: HF_MODEL,
-        messages: [
-          {
-            role: "user",
-            content: prompt,
-          },
-        ],
-        max_tokens: 1000,
+        prompt: prompt,
+        max_new_tokens: 1000,
         temperature: 0.7,
       }),
     })
@@ -666,11 +585,11 @@ NEXT_STEPS:
     }
 
     const data = await response.json()
-    let generatedText = ""
-    if (data.choices && data.choices[0]?.message?.content) {
-      generatedText = data.choices[0].message.content
-    }
+    const generatedText = Array.isArray(data) 
+      ? (data[0]?.generated_text || "").replace(prompt, "").trim()
+      : (data?.generated_text || "").replace(prompt, "").trim()
 
+    // Parse response
     const summaryMatch = generatedText.match(/SUMMARY:\s*(.+?)(?=RECOMMENDATION:|$)/i)
     const recommendationMatch = generatedText.match(/RECOMMENDATION:\s*(.+?)(?=COMPARISON:|$)/i)
     const comparisonMatch = generatedText.match(/COMPARISON:\s*(.+?)(?=NEXT_STEPS:|$)/i)
@@ -679,36 +598,80 @@ NEXT_STEPS:
     const nextSteps = extractItems(nextStepsMatch?.[1])
 
     return {
-      summary:
-        summaryMatch?.[1]?.trim() ||
-        "Based on your input, here are the key factors in your decision between these two options.",
+      summary: summaryMatch?.[1]?.trim() || "Based on your input, here are the key considerations for your decision.",
       recommendation:
         recommendationMatch?.[1]?.trim() ||
-        "Consider which option aligns more closely with your values and long-term goals.",
+        "Consider the factors that align most with your values and long-term goals.",
       comparison:
         comparisonMatch?.[1]?.trim() ||
-        "Both options have distinct advantages and challenges. The right choice depends on which factors matter most to you.",
+        "Both options have distinct advantages and disadvantages that merit careful consideration.",
       nextSteps:
         nextSteps.length > 0
           ? nextSteps
           : [
-              "List the top 3 factors that matter most to you in this decision",
-              "Research or gather additional information on uncertain aspects",
-              "Share your decision with a trusted advisor for perspective",
+              "Take time to reflect on your decision",
+              "Consult with trusted advisors",
+              "Gather any remaining information you need",
             ],
     }
   } catch (error) {
     console.error("[v0] Error generating final comparison:", error)
     return {
-      summary: "Based on your input, here are the key factors in your decision between these two options.",
-      recommendation: "Consider which option aligns more closely with your values and long-term goals.",
-      comparison:
-        "Both options have distinct advantages and challenges. The right choice depends on which factors matter most to you.",
+      summary: "Based on your input, here are the key considerations for your decision.",
+      recommendation: "Consider the factors that align most with your values and long-term goals.",
+      comparison: "Both options have distinct advantages and disadvantages that merit careful consideration.",
       nextSteps: [
-        "List the top 3 factors that matter most to you in this decision",
-        "Research or gather additional information on uncertain aspects",
-        "Share your decision with a trusted advisor for perspective",
+        "Take time to reflect on your decision",
+        "Consult with trusted advisors",
+        "Gather any remaining information you need",
       ],
     }
   }
+}
+
+function extractItems(text: string | undefined): string[] {
+  if (!text) return []
+  return text
+    .split("\n")
+    .filter((line) => /^\d+[\.\)]\s*/.test(line.trim()))
+    .map((line) => line.replace(/^\d+[\.\)]\s*/, "").trim())
+    .filter((item) => item.length > 0)
+}
+
+function generateDefaultPros(decisionType: string): string[] {
+  if (decisionType === "TWO_OPTION") {
+    return [
+      "Aligns with personal goals and aspirations",
+      "Offers long-term growth opportunities",
+      "Reduces key risk factors",
+      "Improves financial or career prospects",
+      "Enhances work-life balance or personal fulfillment",
+    ]
+  }
+  return [
+    "Moves you toward your goals",
+    "Addresses key concerns you have",
+    "Offers potential long-term benefits",
+    "Reduces important risks",
+    "Aligns with your values",
+  ]
+}
+
+function generateDefaultCons(decisionType: string): string[] {
+  if (decisionType === "TWO_OPTION") {
+    return [
+      "Requires significant time investment",
+      "May involve financial uncertainty",
+      "Could create short-term challenges",
+      "Involves stepping outside comfort zone",
+      "May require difficult trade-offs",
+    ]
+  }
+  return [
+    "Requires significant commitment",
+    "Involves some level of risk",
+    "May create short-term difficulties",
+    "Could have unexpected consequences",
+    "Requires careful planning and preparation",
+  ]
 }
