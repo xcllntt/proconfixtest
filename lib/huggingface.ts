@@ -1,5 +1,5 @@
 const HF_MODEL = "mistralai/Mistral-7B-Instruct-v0.3"
-const HF_API_URL = `https://router.huggingface.co/hf-inference/models/${HF_MODEL}`
+const HF_API_URL = "https://router.huggingface.co/v1/chat/completions"
 
 export async function generateClarifyingQuestions(
   dilemmaText: string,
@@ -16,11 +16,7 @@ export async function generateClarifyingQuestions(
       ? `The person is deciding between: "${optionAName}" and "${optionBName}".`
       : "The person needs to decide on a yes/no question."
 
-  const prompt = `You are a thoughtful decision-making coach. Your job is to ask clarifying questions that help someone think through their specific situation more deeply.
-
-The person is facing this dilemma: ${dilemmaText}
-
-${contextInfo}
+  const systemMessage = `You are a thoughtful decision-making coach. Your job is to ask clarifying questions that help someone think through their specific situation more deeply.
 
 Your questions should:
 1. Reference specific aspects, challenges, or opportunities mentioned in their dilemma
@@ -31,7 +27,11 @@ Your questions should:
 
 First, determine how many clarifying questions are truly necessary to gather sufficient context (between 2-5 questions). Generate only that many questions - if 2-3 well-crafted questions are enough, don't force more. Generate clarifying questions tailored to their specific dilemma. Each question should be meaningful to their situation and help them understand what matters most to them.
 
-Format as a numbered list with just the questions, no additional text.`
+IMPORTANT: You must ONLY ask clarifying questions. Do not provide analysis, recommendations, or any other response. Format as a numbered list with just the questions, no additional text.`
+
+  const userMessage = `The person is facing this dilemma: ${dilemmaText}
+
+${contextInfo}`
 
   try {
     const response = await fetch(HF_API_URL, {
@@ -41,24 +41,24 @@ Format as a numbered list with just the questions, no additional text.`
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        inputs: prompt,
-        parameters: {
-          max_new_tokens: 500,
-          temperature: 0.7,
-        },
+        model: HF_MODEL,
+        messages: [
+          { role: "system", content: systemMessage },
+          { role: "user", content: userMessage },
+        ],
+        temperature: 0.7,
+        max_tokens: 500,
       }),
     })
 
     if (!response.ok) {
-      const error = await response.json()
-      console.error("[v0] HF API error:", error)
-      throw new Error(`Hugging Face API error: ${response.status}`)
+      const errorText = await response.text()
+      console.error("[v0] HF API error:", errorText)
+      throw new Error(`Hugging Face API error: ${response.status} - ${errorText}`)
     }
 
     const data = await response.json()
-    const generatedText = Array.isArray(data) 
-      ? (data[0]?.generated_text || "").replace(prompt, "").trim()
-      : (data?.generated_text || "").replace(prompt, "").trim()
+    const generatedText = data.choices?.[0]?.message?.content || ""
 
     console.log("[v0] Generated text:", generatedText)
 
@@ -165,20 +165,22 @@ CONS:
       },
       body: JSON.stringify({
         model: HF_MODEL,
-        prompt: prompt,
-        max_new_tokens: 800,
+        messages: [
+          { role: "user", content: prompt },
+        ],
         temperature: 0.7,
+        max_tokens: 800,
       }),
     })
 
     if (!response.ok) {
-      throw new Error(`Hugging Face API error: ${response.status}`)
+      const errorText = await response.text()
+      console.error("[v0] HF API error:", errorText)
+      throw new Error(`Hugging Face API error: ${response.status} - ${errorText}`)
     }
 
     const data = await response.json()
-    const generatedText = Array.isArray(data) 
-      ? (data[0]?.generated_text || "").replace(prompt, "").trim()
-      : (data?.generated_text || "").replace(prompt, "").trim()
+    const generatedText = data.choices?.[0]?.message?.content || ""
 
     // Parse pros and cons
     const prosMatch = generatedText.match(/PROS:([\s\S]*?)(?=CONS:|$)/i)
@@ -279,20 +281,22 @@ NEXT_STEPS:
       },
       body: JSON.stringify({
         model: HF_MODEL,
-        prompt: prompt,
-        max_new_tokens: 1000,
+        messages: [
+          { role: "user", content: prompt },
+        ],
         temperature: 0.7,
+        max_tokens: 1000,
       }),
     })
 
     if (!response.ok) {
-      throw new Error(`Hugging Face API error: ${response.status}`)
+      const errorText = await response.text()
+      console.error("[v0] HF API error:", errorText)
+      throw new Error(`Hugging Face API error: ${response.status} - ${errorText}`)
     }
 
     const data = await response.json()
-    const generatedText = Array.isArray(data) 
-      ? (data[0]?.generated_text || "").replace(prompt, "").trim()
-      : (data?.generated_text || "").replace(prompt, "").trim()
+    const generatedText = data.choices?.[0]?.message?.content || ""
 
     // Parse response
     const summaryMatch = generatedText.match(/SUMMARY:\s*(.+?)(?=RECOMMENDATION:|$)/i)
@@ -372,20 +376,22 @@ CONS:
       },
       body: JSON.stringify({
         model: HF_MODEL,
-        prompt: prompt,
-        max_new_tokens: 800,
+        messages: [
+          { role: "user", content: prompt },
+        ],
         temperature: 0.7,
+        max_tokens: 800,
       }),
     })
 
     if (!response.ok) {
-      throw new Error(`Hugging Face API error: ${response.status}`)
+      const errorText = await response.text()
+      console.error("[v0] HF API error:", errorText)
+      throw new Error(`Hugging Face API error: ${response.status} - ${errorText}`)
     }
 
     const data = await response.json()
-    const generatedText = Array.isArray(data) 
-      ? (data[0]?.generated_text || "").replace(prompt, "").trim()
-      : (data?.generated_text || "").replace(prompt, "").trim()
+    const generatedText = data.choices?.[0]?.message?.content || ""
 
     const prosMatch = generatedText.match(/PROS:([\s\S]*?)(?=CONS:|$)/i)
     const consMatch = generatedText.match(/CONS:([\s\S]*?)$/i)
@@ -470,20 +476,22 @@ OPTION_B_CONS:
       },
       body: JSON.stringify({
         model: HF_MODEL,
-        prompt: prompt,
-        max_new_tokens: 800,
+        messages: [
+          { role: "user", content: prompt },
+        ],
         temperature: 0.7,
+        max_tokens: 800,
       }),
     })
 
     if (!response.ok) {
-      throw new Error(`Hugging Face API error: ${response.status}`)
+      const errorText = await response.text()
+      console.error("[v0] HF API error:", errorText)
+      throw new Error(`Hugging Face API error: ${response.status} - ${errorText}`)
     }
 
     const data = await response.json()
-    const generatedText = Array.isArray(data) 
-      ? (data[0]?.generated_text || "").replace(prompt, "").trim()
-      : (data?.generated_text || "").replace(prompt, "").trim()
+    const generatedText = data.choices?.[0]?.message?.content || ""
 
     const optionAProsMatch = generatedText.match(/OPTION_A_PROS:([\s\S]*?)(?=OPTION_A_CONS:|$)/i)
     const optionAConsMatch = generatedText.match(/OPTION_A_CONS:([\s\S]*?)(?=OPTION_B_PROS:|$)/i)
@@ -574,20 +582,22 @@ NEXT_STEPS:
       },
       body: JSON.stringify({
         model: HF_MODEL,
-        prompt: prompt,
-        max_new_tokens: 1000,
+        messages: [
+          { role: "user", content: prompt },
+        ],
         temperature: 0.7,
+        max_tokens: 1000,
       }),
     })
 
     if (!response.ok) {
-      throw new Error(`Hugging Face API error: ${response.status}`)
+      const errorText = await response.text()
+      console.error("[v0] HF API error:", errorText)
+      throw new Error(`Hugging Face API error: ${response.status} - ${errorText}`)
     }
 
     const data = await response.json()
-    const generatedText = Array.isArray(data) 
-      ? (data[0]?.generated_text || "").replace(prompt, "").trim()
-      : (data?.generated_text || "").replace(prompt, "").trim()
+    const generatedText = data.choices?.[0]?.message?.content || ""
 
     // Parse response
     const summaryMatch = generatedText.match(/SUMMARY:\s*(.+?)(?=RECOMMENDATION:|$)/i)
