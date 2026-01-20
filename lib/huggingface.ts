@@ -1,4 +1,4 @@
-const HF_MODEL = "mistralai/Mistral-7B-Instruct-v0.3"
+const HF_MODEL = "Qwen/Qwen2.5-7B-Instruct"
 const HF_API_URL = "https://router.huggingface.co/v1/chat/completions"
 
 export async function generateClarifyingQuestions(
@@ -504,6 +504,7 @@ OPTION_B_CONS:
     const optionBCons = extractItems(optionBConsMatch?.[1])
 
     return {
+      // camelCase keys (for any existing usages)
       optionA: {
         name: optionAName,
         pros: optionAPros.length > 0 ? optionAPros : generateDefaultPros("TWO_OPTION"),
@@ -514,7 +515,18 @@ OPTION_B_CONS:
         pros: optionBPros.length > 0 ? optionBPros : generateDefaultPros("TWO_OPTION"),
         cons: optionBCons.length > 0 ? optionBCons : generateDefaultCons("TWO_OPTION"),
       },
-    }
+      // snake_case keys (what the UI expects via TwoOptionAnalysis)
+      option_a: {
+        name: optionAName,
+        pros: optionAPros.length > 0 ? optionAPros : generateDefaultPros("TWO_OPTION"),
+        cons: optionACons.length > 0 ? optionACons : generateDefaultCons("TWO_OPTION"),
+      },
+      option_b: {
+        name: optionBName,
+        pros: optionBPros.length > 0 ? optionBPros : generateDefaultPros("TWO_OPTION"),
+        cons: optionBCons.length > 0 ? optionBCons : generateDefaultCons("TWO_OPTION"),
+      },
+    } as any
   } catch (error) {
     console.error("[v0] Error generating two-option analysis:", error)
     return {
@@ -528,7 +540,17 @@ OPTION_B_CONS:
         pros: generateDefaultPros("TWO_OPTION"),
         cons: generateDefaultCons("TWO_OPTION"),
       },
-    }
+      option_a: {
+        name: optionAName,
+        pros: generateDefaultPros("TWO_OPTION"),
+        cons: generateDefaultCons("TWO_OPTION"),
+      },
+      option_b: {
+        name: optionBName,
+        pros: generateDefaultPros("TWO_OPTION"),
+        cons: generateDefaultCons("TWO_OPTION"),
+      },
+    } as any
   }
 }
 
@@ -538,10 +560,13 @@ export async function generateFinalComparison(
   optionBName: string,
   questionsAndAnswers: Array<{ question: string; answer: string }>,
 ): Promise<{
-  summary: string
-  recommendation: string
-  comparison: string
-  nextSteps: string[]
+  option_a_name: string
+  option_b_name: string
+  dimensions: {
+    name: string
+    option_a_assessment: string
+    option_b_assessment: string
+  }[]
 }> {
   if (!process.env.HUGGINGFACE_API_KEY) {
     throw new Error("HUGGINGFACE_API_KEY is not set")
@@ -558,20 +583,23 @@ Option B: ${optionBName}
 Their responses to clarifying questions:
 ${answersSummary}
 
-Provide a thoughtful final analysis that:
-1. Summarizes the key factors they've revealed as important
-2. Highlights which option seems more aligned with their expressed values and priorities
-3. Compares the options across key dimensions
-4. Suggests 3 concrete next steps
+Create a side-by-side comparison across key decision dimensions.
 
-Format as:
-SUMMARY: [A 2-3 sentence summary of key factors]
-RECOMMENDATION: [Which option seems more aligned and why, without being prescriptive]
-COMPARISON: [A paragraph comparing the options across important dimensions]
-NEXT_STEPS:
-1. [step]
-2. [step]
-3. [step]`
+Rules:
+- Output ONLY a numbered list of 6-10 dimensions.
+- Each dimension must be exactly 3 lines:
+  1) [Dimension name]
+     A: [assessment for Option A]
+     B: [assessment for Option B]
+- Do NOT include any additional sections (no summary, no recommendation, no intro, no outro).
+
+Example format:
+1) Cost & budget
+   A: ...
+   B: ...
+2) Time commitment
+   A: ...
+   B: ...`
 
   try {
     const response = await fetch(HF_API_URL, {
@@ -599,42 +627,48 @@ NEXT_STEPS:
     const data = await response.json()
     const generatedText = data.choices?.[0]?.message?.content || ""
 
-    // Parse response
-    const summaryMatch = generatedText.match(/SUMMARY:\s*(.+?)(?=RECOMMENDATION:|$)/i)
-    const recommendationMatch = generatedText.match(/RECOMMENDATION:\s*(.+?)(?=COMPARISON:|$)/i)
-    const comparisonMatch = generatedText.match(/COMPARISON:\s*(.+?)(?=NEXT_STEPS:|$)/i)
-    const nextStepsMatch = generatedText.match(/NEXT_STEPS:([\s\S]*?)$/i)
+    const dimensions: Array<{
+      name: string
+      option_a_assessment: string
+      option_b_assessment: string
+    }> = []
 
-    const nextSteps = extractItems(nextStepsMatch?.[1])
+    const lines = generatedText
+      .split("\n")
+      .map((l) => l.trim())
+      .filter((l) => l.length > 0)
+
+    for (let i = 0; i < lines.length; i++) {
+      const headerMatch = lines[i].match(/^\d+[\.\)]\s*(.+)$/)
+      if (!headerMatch) continue
+
+      const name = headerMatch[1].trim()
+      const aLine = lines[i + 1] || ""
+      const bLine = lines[i + 2] || ""
+
+      const aMatch = aLine.match(/^A:\s*(.+)$/i)
+      const bMatch = bLine.match(/^B:\s*(.+)$/i)
+
+      if (!aMatch || !bMatch) continue
+
+      dimensions.push({
+        name,
+        option_a_assessment: aMatch[1].trim(),
+        option_b_assessment: bMatch[1].trim(),
+      })
+    }
 
     return {
-      summary: summaryMatch?.[1]?.trim() || "Based on your input, here are the key considerations for your decision.",
-      recommendation:
-        recommendationMatch?.[1]?.trim() ||
-        "Consider the factors that align most with your values and long-term goals.",
-      comparison:
-        comparisonMatch?.[1]?.trim() ||
-        "Both options have distinct advantages and disadvantages that merit careful consideration.",
-      nextSteps:
-        nextSteps.length > 0
-          ? nextSteps
-          : [
-              "Take time to reflect on your decision",
-              "Consult with trusted advisors",
-              "Gather any remaining information you need",
-            ],
+      option_a_name: optionAName,
+      option_b_name: optionBName,
+      dimensions,
     }
   } catch (error) {
     console.error("[v0] Error generating final comparison:", error)
     return {
-      summary: "Based on your input, here are the key considerations for your decision.",
-      recommendation: "Consider the factors that align most with your values and long-term goals.",
-      comparison: "Both options have distinct advantages and disadvantages that merit careful consideration.",
-      nextSteps: [
-        "Take time to reflect on your decision",
-        "Consult with trusted advisors",
-        "Gather any remaining information you need",
-      ],
+      option_a_name: optionAName,
+      option_b_name: optionBName,
+      dimensions: [],
     }
   }
 }
