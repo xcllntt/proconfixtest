@@ -4,6 +4,7 @@ import { useDecision } from "@/lib/decision-context"
 import { LandingScreen } from "@/components/screens/landing-screen"
 import { TypeSelectionScreen } from "@/components/screens/type-selection-screen"
 import { DilemmaInputScreen } from "@/components/screens/dilemma-input-screen"
+import { ClarifyingIntroScreen } from "@/components/screens/clarifying-intro-screen"
 import { ClarifyingQuestionsScreen } from "@/components/screens/clarifying-questions-screen"
 import { InitialAnalysisScreen } from "@/components/screens/initial-analysis-screen"
 import { FinalAnalysisScreen } from "@/components/screens/final-analysis-screen"
@@ -16,6 +17,7 @@ export default function Home() {
       {currentStep === "landing" && <LandingScreen />}
       {currentStep === "type-selection" && <TypeSelectionScreen />}
       {currentStep === "dilemma-input" && <DilemmaInputScreen />}
+      {currentStep === "clarifying-intro" && <ClarifyingIntroScreen />}
       {currentStep === "clarifying-questions" && <ClarifyingQuestionsScreen />}
       {currentStep === "initial-analysis" && <InitialAnalysisScreen />}
       {currentStep === "final-analysis" && <FinalAnalysisScreen />}

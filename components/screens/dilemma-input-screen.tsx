@@ -54,7 +54,8 @@ export function DilemmaInputScreen() {
       const data = await response.json()
       setDecisionId(data.decision_id)
       setQuestions(data.questions)
-      setCurrentStep("clarifying-questions")
+      // Start at the clarifying intro screen before showing questions
+      setCurrentStep("clarifying-intro")
     } catch (err) {
       setError(err instanceof Error ? err.message : "Something went wrong")
     } finally {

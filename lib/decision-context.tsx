@@ -17,6 +17,7 @@ interface DecisionContextType extends DecisionFlowState {
   setDecisionId: (id: string) => void
   setQuestions: (questions: ClarifyingQuestion[]) => void
   setAnswer: (questionId: string, answer: string) => void
+  setCurrentQuestionIndex: (index: number) => void
   setInitialAnalysis: (analysis: YesNoAnalysis | TwoOptionAnalysis) => void
   setFinalAnalysis: (analysis: FinalComparisonAnalysis) => void
   setCurrentStep: (step: DecisionFlowState["currentStep"]) => void
@@ -32,6 +33,7 @@ const initialState: DecisionFlowState = {
   optionBName: "",
   questions: [],
   answers: new Map(),
+   currentQuestionIndex: 0,
   initialAnalysis: null,
   finalAnalysis: null,
   currentStep: "landing",
@@ -70,6 +72,10 @@ export function DecisionProvider({ children }: { children: ReactNode }) {
     })
   }, [])
 
+  const setCurrentQuestionIndex = useCallback((index: number) => {
+    setState((prev) => ({ ...prev, currentQuestionIndex: index }))
+  }, [])
+
   const setInitialAnalysis = useCallback((analysis: YesNoAnalysis | TwoOptionAnalysis) => {
     setState((prev) => ({ ...prev, initialAnalysis: analysis }))
   }, [])
@@ -91,6 +97,7 @@ export function DecisionProvider({ children }: { children: ReactNode }) {
     setState((prev) => ({
       ...prev,
       currentStep: "clarifying-questions",
+      currentQuestionIndex: 0,
       initialAnalysis: null,
       finalAnalysis: null,
     }))
@@ -106,6 +113,7 @@ export function DecisionProvider({ children }: { children: ReactNode }) {
         setDecisionId,
         setQuestions,
         setAnswer,
+        setCurrentQuestionIndex,
         setInitialAnalysis,
         setFinalAnalysis,
         setCurrentStep,

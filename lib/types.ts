@@ -105,12 +105,14 @@ export interface DecisionFlowState {
   optionBName: string
   questions: ClarifyingQuestion[]
   answers: Map<string, string>
+  currentQuestionIndex: number
   initialAnalysis: YesNoAnalysis | TwoOptionAnalysis | null
   finalAnalysis: FinalComparisonAnalysis | null
   currentStep:
     | "landing"
     | "type-selection"
     | "dilemma-input"
+    | "clarifying-intro"
     | "clarifying-questions"
     | "initial-analysis"
     | "final-analysis"
