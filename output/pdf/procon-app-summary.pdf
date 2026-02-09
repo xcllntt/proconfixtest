@@ -1,0 +1,63 @@
+%PDF-1.4
+1 0 obj
+<< /Type /Catalog /Pages 2 0 R >>
+endobj
+2 0 obj
+<< /Type /Pages /Kids [3 0 R] /Count 1 >>
+endobj
+3 0 obj
+<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Resources << /Font << /F1 4 0 R /F2 5 0 R >> >> /Contents 6 0 R >>
+endobj
+4 0 obj
+<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>
+endobj
+5 0 obj
+<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica-Bold >>
+endobj
+6 0 obj
+<< /Length 2822 >>
+stream
+BT /F2 18 Tf 1 0 0 1 54.00 750.00 Tm (Procon App Summary) Tj ET
+BT /F2 12 Tf 1 0 0 1 54.00 720.00 Tm (What It Is) Tj ET
+BT /F1 10 Tf 1 0 0 1 54.00 706.00 Tm (Procon is a Next.js web app that guides people through a structured decision-making flow) Tj ET
+BT /F1 10 Tf 1 0 0 1 54.00 694.00 Tm (and uses AI to generate clarifying questions plus pros/cons analysis.) Tj ET
+BT /F2 12 Tf 1 0 0 1 54.00 676.00 Tm (Who It Is For) Tj ET
+BT /F1 10 Tf 1 0 0 1 54.00 662.00 Tm (People weighing a yes/no choice or two-option decision who want structured, AI-assisted guidance.) Tj ET
+BT /F2 12 Tf 1 0 0 1 54.00 644.00 Tm (What It Does) Tj ET
+BT /F1 10 Tf 1 0 0 1 54.00 630.00 Tm (- Choose a decision type: yes/no or two-option.) Tj ET
+BT /F1 10 Tf 1 0 0 1 54.00 618.00 Tm (- Capture dilemma text and, for two-option decisions, option names.) Tj ET
+BT /F1 10 Tf 1 0 0 1 54.00 606.00 Tm (- Generate 2-5 clarifying questions via the Hugging Face model.) Tj ET
+BT /F1 10 Tf 1 0 0 1 54.00 594.00 Tm (- Collect answers and store them in Supabase.) Tj ET
+BT /F1 10 Tf 1 0 0 1 54.00 582.00 Tm (- Produce initial pros/cons analysis from the answers.) Tj ET
+BT /F1 10 Tf 1 0 0 1 54.00 570.00 Tm (- For two-option decisions, generate a final side-by-side comparison.) Tj ET
+BT /F1 10 Tf 1 0 0 1 54.00 558.00 Tm (- Persist decisions, questions, answers, and analyses in Supabase.) Tj ET
+BT /F2 12 Tf 1 0 0 1 54.00 540.00 Tm (How It Works) Tj ET
+BT /F1 10 Tf 1 0 0 1 54.00 526.00 Tm (- Next.js App Router UI with step screens in components/screens rendered by) Tj ET
+BT /F1 10 Tf 1 0 0 1 54.00 514.00 Tm (  app/page.tsx.) Tj ET
+BT /F1 10 Tf 1 0 0 1 54.00 502.00 Tm (- Client state managed by DecisionProvider context in lib/decision-context.tsx.) Tj ET
+BT /F1 10 Tf 1 0 0 1 54.00 490.00 Tm (- API routes in app/api/decisions handle create, answers, analyze, and final-analysis.) Tj ET
+BT /F1 10 Tf 1 0 0 1 54.00 478.00 Tm (- Supabase stores tables defined in scripts/001_create_decisions_table.sql.) Tj ET
+BT /F1 10 Tf 1 0 0 1 54.00 466.00 Tm (- Hugging Face router \(Qwen2.5-7B-Instruct\) generates questions and analyses.) Tj ET
+BT /F1 10 Tf 1 0 0 1 54.00 454.00 Tm (- Data flow: UI -> API routes -> Supabase/Hugging Face -> API response -> UI.) Tj ET
+BT /F2 12 Tf 1 0 0 1 54.00 436.00 Tm (How To Run) Tj ET
+BT /F1 10 Tf 1 0 0 1 54.00 422.00 Tm (- Install dependencies: pnpm install \(or npm install\).) Tj ET
+BT /F1 10 Tf 1 0 0 1 54.00 410.00 Tm (- Set .env.local with NEXT_PUBLIC_SUPABASE_URL, NEXT_PUBLIC_SUPABASE_ANON_KEY,) Tj ET
+BT /F1 10 Tf 1 0 0 1 54.00 398.00 Tm (  HUGGINGFACE_API_KEY.) Tj ET
+BT /F1 10 Tf 1 0 0 1 54.00 386.00 Tm (- Run scripts/001_create_decisions_table.sql in your Supabase project.) Tj ET
+BT /F1 10 Tf 1 0 0 1 54.00 374.00 Tm (- Start the dev server: pnpm dev \(or npm run dev\) and open http://localhost:3000.) Tj ET
+endstream
+endobj
+xref
+0 7
+0000000000 65535 f 
+0000000009 00000 n 
+0000000058 00000 n 
+0000000115 00000 n 
+0000000251 00000 n 
+0000000321 00000 n 
+0000000396 00000 n 
+trailer
+<< /Size 7 /Root 1 0 R >>
+startxref
+3270
+%%EOF
