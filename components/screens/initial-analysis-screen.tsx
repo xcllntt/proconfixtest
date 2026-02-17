@@ -3,8 +3,11 @@
 import { useState } from "react"
 import { useDecision } from "@/lib/decision-context"
 import { Button } from "@/components/ui/button"
-import { ArrowLeft, Loader2, ThumbsUp, ThumbsDown, RefreshCw } from "lucide-react"
+import { ArrowLeft, Loader2, RefreshCw } from "lucide-react"
 import type { YesNoAnalysis, TwoOptionAnalysis } from "@/lib/types"
+import { DecisionSignalCard } from "@/components/decision/decision-signal-card"
+import { WeightedProConList, decisionSignalForProConPair } from "@/components/decision/weighted-procon-list"
+import { answersMapToContextText } from "@/lib/decision-weighting"
 
 export function InitialAnalysisScreen() {
   const {
@@ -16,6 +19,7 @@ export function InitialAnalysisScreen() {
     optionBName,
     setFinalAnalysis,
     goBackToQuestions,
+    answers,
   } = useDecision()
 
   const [isLoading, setIsLoading] = useState(false)
@@ -49,6 +53,7 @@ export function InitialAnalysisScreen() {
   const isYesNo = decisionType === "YES_NO"
   const yesNoAnalysis = initialAnalysis as YesNoAnalysis | null
   const twoOptionAnalysis = initialAnalysis as TwoOptionAnalysis | null
+  const contextText = answersMapToContextText(answers)
 
   return (
     <div className="min-h-screen flex flex-col">
@@ -72,9 +77,19 @@ export function InitialAnalysisScreen() {
           </div>
 
           {isYesNo && yesNoAnalysis ? (
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <ProConList type="pros" items={yesNoAnalysis.pros} title="Pros" />
-              <ProConList type="cons" items={yesNoAnalysis.cons} title="Cons" />
+            <div className="space-y-6">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <WeightedProConList type="pros" items={yesNoAnalysis.pros} title="Pros" contextText={contextText} />
+                <WeightedProConList type="cons" items={yesNoAnalysis.cons} title="Cons" contextText={contextText} />
+              </div>
+
+              <DecisionSignalCard
+                signal={decisionSignalForProConPair({
+                  proItems: yesNoAnalysis.pros,
+                  conItems: yesNoAnalysis.cons,
+                  contextText,
+                })}
+              />
             </div>
           ) : twoOptionAnalysis ? (
             <div className="space-y-8">
@@ -82,18 +97,64 @@ export function InitialAnalysisScreen() {
                 <h3 className="text-xl font-semibold text-foreground mb-4">
                   {twoOptionAnalysis.option_a?.name || optionAName}
                 </h3>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <ProConList type="pros" items={twoOptionAnalysis.option_a?.pros || []} title="Pros" compact />
-                  <ProConList type="cons" items={twoOptionAnalysis.option_a?.cons || []} title="Cons" compact />
+                <div className="space-y-5">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <WeightedProConList
+                      type="pros"
+                      items={twoOptionAnalysis.option_a?.pros || []}
+                      title="Pros"
+                      compact
+                      contextText={contextText}
+                      deemphasize={(twoOptionAnalysis.option_a?.pros || []).length <= 2}
+                    />
+                    <WeightedProConList
+                      type="cons"
+                      items={twoOptionAnalysis.option_a?.cons || []}
+                      title="Cons"
+                      compact
+                      contextText={contextText}
+                      deemphasize={(twoOptionAnalysis.option_a?.cons || []).length <= 2}
+                    />
+                  </div>
+                  <DecisionSignalCard
+                    signal={decisionSignalForProConPair({
+                      proItems: twoOptionAnalysis.option_a?.pros || [],
+                      conItems: twoOptionAnalysis.option_a?.cons || [],
+                      contextText,
+                    })}
+                  />
                 </div>
               </div>
               <div className="p-6 rounded-xl bg-card border border-border">
                 <h3 className="text-xl font-semibold text-foreground mb-4">
                   {twoOptionAnalysis.option_b?.name || optionBName}
                 </h3>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <ProConList type="pros" items={twoOptionAnalysis.option_b?.pros || []} title="Pros" compact />
-                  <ProConList type="cons" items={twoOptionAnalysis.option_b?.cons || []} title="Cons" compact />
+                <div className="space-y-5">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <WeightedProConList
+                      type="pros"
+                      items={twoOptionAnalysis.option_b?.pros || []}
+                      title="Pros"
+                      compact
+                      contextText={contextText}
+                      deemphasize={(twoOptionAnalysis.option_b?.pros || []).length <= 2}
+                    />
+                    <WeightedProConList
+                      type="cons"
+                      items={twoOptionAnalysis.option_b?.cons || []}
+                      title="Cons"
+                      compact
+                      contextText={contextText}
+                      deemphasize={(twoOptionAnalysis.option_b?.cons || []).length <= 2}
+                    />
+                  </div>
+                  <DecisionSignalCard
+                    signal={decisionSignalForProConPair({
+                      proItems: twoOptionAnalysis.option_b?.pros || [],
+                      conItems: twoOptionAnalysis.option_b?.cons || [],
+                      contextText,
+                    })}
+                  />
                 </div>
               </div>
             </div>
@@ -129,42 +190,6 @@ export function InitialAnalysisScreen() {
           </div>
         </div>
       </div>
-    </div>
-  )
-}
-
-function ProConList({
-  type,
-  items,
-  title,
-  compact = false,
-}: {
-  type: "pros" | "cons"
-  items: string[]
-  title: string
-  compact?: boolean
-}) {
-  const isPros = type === "pros"
-
-  return (
-    <div className={`${compact ? "" : "p-6 rounded-xl bg-card border border-border"}`}>
-      <div className="flex items-center gap-2 mb-4">
-        {isPros ? <ThumbsUp className="h-5 w-5 text-accent" /> : <ThumbsDown className="h-5 w-5 text-destructive" />}
-        <h3 className={`font-semibold ${compact ? "text-base" : "text-lg"} text-foreground`}>{title}</h3>
-      </div>
-      <ul className="space-y-3">
-        {items.map((item, index) => (
-          <li key={index} className="flex items-start gap-3">
-            <span
-              className={`
-              mt-1.5 h-2 w-2 rounded-full flex-shrink-0
-              ${isPros ? "bg-accent" : "bg-destructive"}
-            `}
-            />
-            <span className="text-muted-foreground text-sm">{item}</span>
-          </li>
-        ))}
-      </ul>
     </div>
   )
 }
