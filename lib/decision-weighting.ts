@@ -33,54 +33,127 @@ function includesAny(haystack: string, needles: string[]) {
 function scoreFromWording(text: string, type: ProConType): number {
   const t = normalize(text)
 
+  // Strong positive language for pros
+  const extremeBoostersPros = [
+    "life-changing",
+    "game changer",
+    "transformative",
+    "revolutionary",
+    "breakthrough",
+    "massive",
+    "huge",
+    "enormous",
+    "tremendous",
+    "exceptional",
+    "outstanding",
+    "incredible",
+  ]
   const strongBoostersPros = [
     "major",
     "significant",
     "substantial",
-    "huge",
-    "massive",
     "meaningful",
-    "life-changing",
-    "game changer",
     "great",
     "excellent",
     "high impact",
     "strong benefit",
+    "important",
+    "valuable",
+    "essential",
+    "crucial",
   ]
-  const mildReducersPros = ["minor", "small", "slight", "nice to have", "convenient", "somewhat", "a bit"]
+  const mildReducersPros = ["minor", "small", "slight", "nice to have", "convenient", "somewhat", "a bit", "modest"]
 
+  // Strong negative language for cons
+  const extremeBoostersCons = [
+    "deal-breaker",
+    "dealbreaker",
+    "catastrophic",
+    "devastating",
+    "ruinous",
+    "unacceptable",
+    "impossible",
+    "unbearable",
+    "intolerable",
+    "unsustainable",
+  ]
   const strongBoostersCons = [
     "critical",
     "severe",
     "serious",
-    "deal-breaker",
-    "dealbreaker",
     "unsafe",
     "danger",
     "harm",
     "toxic",
     "burnout",
     "illegal",
-    "catastrophic",
     "unaffordable",
     "very expensive",
+    "major concern",
+    "significant risk",
   ]
-  const mildReducersCons = ["minor", "small", "slight", "manageable", "inconvenient", "somewhat", "a bit"]
+  const mildReducersCons = ["minor", "small", "slight", "manageable", "inconvenient", "somewhat", "a bit", "minor issue"]
 
-  const uncertaintyReducers = ["maybe", "might", "could", "unclear", "unknown", "depends"]
-  const certaintyBoosters = ["will", "always", "never", "definitely", "certainly"]
+  // Long-term vs short-term indicators
+  const longTermIndicators = [
+    "long-term",
+    "long term",
+    "years",
+    "future",
+    "career",
+    "trajectory",
+    "permanent",
+    "lasting",
+    "enduring",
+    "lifetime",
+    "forever",
+    "decades",
+  ]
+  const shortTermIndicators = ["temporary", "short-term", "short term", "brief", "quick", "immediate", "now"]
+
+  // Emotional impact indicators
+  const highEmotionalImpact = [
+    "anxious",
+    "worried",
+    "stressed",
+    "overwhelmed",
+    "excited",
+    "thrilled",
+    "passionate",
+    "fulfilled",
+    "miserable",
+    "depressed",
+    "happy",
+    "joy",
+    "fear",
+    "dread",
+    "love",
+  ]
+
+  const uncertaintyReducers = ["maybe", "might", "could", "unclear", "unknown", "depends", "possibly", "perhaps"]
+  const certaintyBoosters = ["will", "always", "never", "definitely", "certainly", "guaranteed", "assured"]
 
   let delta = 0
 
   if (type === "pros") {
-    if (includesAny(t, strongBoostersPros)) delta += 1
-    if (includesAny(t, mildReducersPros)) delta -= 1
+    if (includesAny(t, extremeBoostersPros)) delta += 2
+    else if (includesAny(t, strongBoostersPros)) delta += 1.5
+    if (includesAny(t, mildReducersPros)) delta -= 1.5
   } else {
-    if (includesAny(t, strongBoostersCons)) delta += 2
-    if (includesAny(t, mildReducersCons)) delta -= 1
+    if (includesAny(t, extremeBoostersCons)) delta += 2.5
+    else if (includesAny(t, strongBoostersCons)) delta += 2
+    if (includesAny(t, mildReducersCons)) delta -= 1.5
   }
 
-  if (includesAny(t, certaintyBoosters)) delta += 1
+  // Long-term consequences boost weight
+  if (includesAny(t, longTermIndicators)) delta += type === "pros" ? 0.5 : 0.75
+  if (includesAny(t, shortTermIndicators)) delta -= 0.5
+
+  // Emotional impact boosts weight
+  if (includesAny(t, highEmotionalImpact)) delta += 0.75
+
+  // Certainty vs uncertainty
+  if (includesAny(t, certaintyBoosters)) delta += 0.75
   if (includesAny(t, uncertaintyReducers)) delta -= 1
 
   return delta
@@ -111,43 +184,115 @@ const TOPICS: Array<{ key: TopicKey; keywords: string[] }> = [
   { key: "stress", keywords: ["stress", "pressure", "burnout", "work-life", "work life", "balance"] },
 ]
 
-function computeTopicBias(contextText: string) {
-  const ctx = normalize(contextText)
-  const bias = new Map<TopicKey, { up: boolean; down: boolean }>()
+function computeTopicBias(contextText: string, dilemmaText: string = "") {
+  const ctx = normalize(contextText + " " + dilemmaText)
+  const bias = new Map<TopicKey, { up: boolean; down: boolean; strength: number }>()
+
+  // Strong priority indicators
+  const strongPriorityPatterns = [
+    /most important/i,
+    /top priority/i,
+    /really care/i,
+    /care a lot/i,
+    /matters most/i,
+    /non[-\s]?negotiable/i,
+    /must have/i,
+    /essential/i,
+    /critical for me/i,
+    /deal breaker/i,
+    /can't live without/i,
+    /absolutely need/i,
+  ]
+
+  // Moderate priority indicators
+  const moderatePriorityPatterns = [
+    /important/i,
+    /value/i,
+    /matters/i,
+    /care about/i,
+    /priority/i,
+    /significant/i,
+  ]
+
+  // Low priority indicators
+  const lowPriorityPatterns = [
+    /not important/i,
+    /don't care/i,
+    /doesn't matter/i,
+    /no big deal/i,
+    /not a priority/i,
+    /don't mind/i,
+    /less important/i,
+  ]
 
   for (const topic of TOPICS) {
     const mentions = topic.keywords.some((k) => ctx.includes(k))
     if (!mentions) continue
 
-    const up =
-      /most important|top priority|really care|care a lot|value|matters a lot|non[-\s]?negotiable/.test(ctx) &&
-      topic.keywords.some((k) => ctx.includes(k))
+    let strength = 0
+    let up = false
+    let down = false
 
-    const down =
-      /not important|don't care|doesn't matter|no big deal|not a priority/.test(ctx) &&
-      topic.keywords.some((k) => ctx.includes(k))
+    // Check for strong priority signals
+    const strongMatch = strongPriorityPatterns.some((pattern) => pattern.test(ctx))
+    const moderateMatch = moderatePriorityPatterns.some((pattern) => pattern.test(ctx))
+    const lowMatch = lowPriorityPatterns.some((pattern) => pattern.test(ctx))
 
-    bias.set(topic.key, { up, down })
+    if (strongMatch && topic.keywords.some((k) => ctx.includes(k))) {
+      up = true
+      strength = 2
+    } else if (moderateMatch && topic.keywords.some((k) => ctx.includes(k))) {
+      up = true
+      strength = 1
+    }
+
+    if (lowMatch && topic.keywords.some((k) => ctx.includes(k))) {
+      down = true
+      strength = -1.5
+    }
+
+    bias.set(topic.key, { up, down, strength })
   }
 
   return bias
 }
 
-function scoreFromContext(itemText: string, contextText: string): number {
+function scoreFromContext(itemText: string, contextText: string, dilemmaText: string = ""): number {
   const ctx = normalize(contextText)
-  if (!ctx) return 0
+  const dilemma = normalize(dilemmaText)
+  if (!ctx && !dilemma) return 0
 
   const item = normalize(itemText)
-  const topicBias = computeTopicBias(ctx)
+  const topicBias = computeTopicBias(contextText, dilemmaText)
 
   let delta = 0
+
+  // Check topic relevance
   for (const topic of TOPICS) {
     const matchesTopic = topic.keywords.some((k) => item.includes(k))
     if (!matchesTopic) continue
 
     const b = topicBias.get(topic.key)
-    if (b?.up) delta += 1
-    if (b?.down) delta -= 1
+    if (b) {
+      delta += b.strength
+    }
+  }
+
+  // Check if item directly addresses concerns mentioned in dilemma
+  if (dilemma) {
+    const dilemmaKeywords = dilemma.split(/\s+/).filter((w) => w.length > 4)
+    const itemMatchesDilemma = dilemmaKeywords.some((kw) => item.includes(kw))
+    if (itemMatchesDilemma) {
+      delta += 0.5 // Items that directly address the dilemma get a boost
+    }
+  }
+
+  // Check for emotional language in context that matches item
+  const emotionalWords = ["worried", "anxious", "excited", "concerned", "happy", "stressed", "fear", "hope"]
+  const contextHasEmotion = emotionalWords.some((w) => ctx.includes(w) || dilemma.includes(w))
+  const itemHasEmotion = emotionalWords.some((w) => item.includes(w))
+  if (contextHasEmotion && itemHasEmotion) {
+    delta += 0.75 // Emotional alignment boosts weight
   }
 
   return delta
@@ -165,24 +310,66 @@ export function impactLabelFor(type: ProConType, weight: Weight): ImpactLabel {
   return "Critical risk"
 }
 
-export function estimateItemWeight(params: { type: ProConType; itemText: string; contextText?: string }): Weight {
-  const { type, itemText, contextText = "" } = params
+export function estimateItemWeight(params: {
+  type: ProConType
+  itemText: string
+  contextText?: string
+  dilemmaText?: string
+}): Weight {
+  const { type, itemText, contextText = "", dilemmaText = "" } = params
 
-  // Conservative, balanced baseline when we have limited context.
-  let score = 3
+  // Start with a neutral baseline, but allow strong differentiation
+  // We'll use relative scoring to avoid defaults
+  let score = 2.5 // Slightly below moderate to encourage differentiation
 
-  score += scoreFromWording(itemText, type)
-  score += scoreFromContext(itemText, contextText)
+  const wordingScore = scoreFromWording(itemText, type)
+  const contextScore = scoreFromContext(itemText, contextText, dilemmaText)
 
-  return clampWeight(score)
+  score += wordingScore
+  score += contextScore
+
+  // Ensure we get strong differentiation - push extremes further
+  if (score > 3.5) {
+    // Boost high-scoring items
+    score = Math.min(5, score + 0.3)
+  } else if (score < 2.5) {
+    // Reduce low-scoring items
+    score = Math.max(1, score - 0.3)
+  }
+
+  return clampWeight(Math.round(score * 2) / 2) // Round to nearest 0.5, then clamp
 }
 
-export function weightItems(params: { type: ProConType; items: string[]; contextText?: string }): WeightedItem[] {
-  const { type, items, contextText = "" } = params
-  return items.map((text, originalIndex) => {
-    const weight = estimateItemWeight({ type, itemText: text, contextText })
+export function weightItems(params: {
+  type: ProConType
+  items: string[]
+  contextText?: string
+  dilemmaText?: string
+}): WeightedItem[] {
+  const { type, items, contextText = "", dilemmaText = "" } = params
+  const weighted = items.map((text, originalIndex) => {
+    const weight = estimateItemWeight({ type, itemText: text, contextText, dilemmaText })
     return { text, weight, label: impactLabelFor(type, weight), originalIndex }
   })
+
+  // Normalize weights to ensure strong differentiation
+  // If all weights are too similar, spread them out
+  const weights = weighted.map((w) => w.weight)
+  const minWeight = Math.min(...weights)
+  const maxWeight = Math.max(...weights)
+  const range = maxWeight - minWeight
+
+  // If range is too small (< 2), enhance differentiation
+  if (range < 2 && items.length > 2) {
+    return weighted.map((item) => {
+      // Normalize to 1-5 scale with better spread
+      const normalized = minWeight === maxWeight ? 3 : ((item.weight - minWeight) / range) * 3 + 1
+      const enhancedWeight = clampWeight(Math.round(normalized))
+      return { ...item, weight: enhancedWeight, label: impactLabelFor(type, enhancedWeight) }
+    })
+  }
+
+  return weighted
 }
 
 export type SectionSummaryLabel =
@@ -205,19 +392,34 @@ export function summarizeSection(params: { type: ProConType; weights: Weight[] }
     }
   }
 
+  // Use weighted average with emphasis on extremes
   const avg = weights.reduce((a, b) => a + b, 0) / weights.length
   const max = Math.max(...weights)
-  const summaryWeight = clampWeight(Math.round((avg + max) / 2))
+  const min = Math.min(...weights)
+  const hasExtreme = max === 5 || min === 1
 
-  if (type === "pros") {
-    if (summaryWeight <= 2) return { summaryWeight, label: "Overall impact: Weak" }
-    if (summaryWeight === 3) return { summaryWeight, label: "Overall impact: Moderate" }
-    return { summaryWeight, label: "Overall impact: Strong" }
+  // If there's an extreme value, give it more weight
+  let summaryWeight: number
+  if (hasExtreme && weights.length <= 3) {
+    // Small list with extreme: let extreme dominate
+    summaryWeight = max === 5 ? (avg * 0.4 + max * 0.6) : (avg * 0.6 + min * 0.4)
+  } else {
+    // Larger list: balance average with max
+    summaryWeight = (avg * 0.6 + max * 0.4)
   }
 
-  if (summaryWeight <= 2) return { summaryWeight, label: "Overall risk: Low" }
-  if (summaryWeight === 3) return { summaryWeight, label: "Overall risk: Manageable" }
-  return { summaryWeight, label: "Overall risk: Critical" }
+  summaryWeight = clampWeight(Math.round(summaryWeight))
+
+  // Strong differentiation - avoid defaulting to moderate
+  if (type === "pros") {
+    if (summaryWeight <= 2.5) return { summaryWeight: summaryWeight as Weight, label: "Overall impact: Weak" }
+    if (summaryWeight >= 4) return { summaryWeight: summaryWeight as Weight, label: "Overall impact: Strong" }
+    return { summaryWeight: summaryWeight as Weight, label: "Overall impact: Moderate" }
+  }
+
+  if (summaryWeight <= 2.5) return { summaryWeight: summaryWeight as Weight, label: "Overall risk: Low" }
+  if (summaryWeight >= 4) return { summaryWeight: summaryWeight as Weight, label: "Overall risk: Critical" }
+  return { summaryWeight: summaryWeight as Weight, label: "Overall risk: Manageable" }
 }
 
 export type DecisionSignal =
@@ -242,8 +444,13 @@ export type DecisionSignal =
       explanation: string
     }
 
-export function decisionSignalFromWeights(params: { proWeights: Weight[]; conWeights: Weight[] }): DecisionSignal {
-  const { proWeights, conWeights } = params
+export function decisionSignalFromWeights(params: {
+  proWeights: Weight[]
+  conWeights: Weight[]
+  contextText?: string
+  dilemmaText?: string
+}): DecisionSignal {
+  const { proWeights, conWeights, contextText = "", dilemmaText = "" } = params
   const prosTotal = proWeights.reduce((a, b) => a + b, 0)
   const consTotal = conWeights.reduce((a, b) => a + b, 0)
   const total = prosTotal + consTotal
@@ -262,16 +469,38 @@ export function decisionSignalFromWeights(params: { proWeights: Weight[]; conWei
   const delta = prosTotal - consTotal
   const magnitude = Math.abs(delta) / total
 
-  // Edge case: one critical downside dominating many mild upsides.
-  if (maxCon === 5 && consTotal >= prosTotal - 1) {
+  // Edge case: one critical downside dominating many mild upsides
+  if (maxCon === 5 && (consTotal >= prosTotal - 2 || maxCon > maxPro + 1)) {
+    const ctx = normalize(contextText + " " + dilemmaText)
+    const explanation = ctx.includes("family") || ctx.includes("health")
+      ? "A critical downside related to your core priorities outweighs the benefits here."
+      : "One or more critical downsides carry outsized weight compared to the upside."
     return {
       kind: "strongly_negative",
       title: "Strongly negative",
-      explanation: "One or more critical downsides carry outsized weight compared to the upside.",
+      explanation,
     }
   }
 
-  if (magnitude < 0.12) {
+  // Edge case: one extremely high pro with manageable cons
+  if (maxPro === 5 && proWeights.filter((w) => w >= 4).length >= 2 && maxCon < 4) {
+    return {
+      kind: "strongly_positive",
+      title: "Strongly positive",
+      explanation: "Multiple high-impact benefits significantly outweigh the manageable risks.",
+    }
+  }
+
+  // Balanced case - check if truly balanced or just unclear
+  if (magnitude < 0.15) {
+    const hasExtremes = maxPro === 5 || maxCon === 5
+    if (hasExtremes) {
+      return {
+        kind: "balanced",
+        title: "Balanced trade-off",
+        explanation: "Strong benefits are matched by significant risks. Your personal priorities will determine the best path.",
+      }
+    }
     return {
       kind: "balanced",
       title: "Balanced trade-off",
@@ -279,12 +508,17 @@ export function decisionSignalFromWeights(params: { proWeights: Weight[]; conWei
     }
   }
 
+  // Positive cases
   if (delta > 0) {
-    if (magnitude > 0.28 || maxPro === 5) {
+    if (magnitude > 0.3 || (maxPro === 5 && maxCon <= 3)) {
+      const ctx = normalize(contextText + " " + dilemmaText)
+      const explanation = ctx.includes("career") || ctx.includes("growth")
+        ? "The benefits align strongly with your goals and priorities, outweighing the risks."
+        : "Several meaningful benefits outweigh the risks in the current picture."
       return {
         kind: "strongly_positive",
         title: "Strongly positive",
-        explanation: "Several meaningful benefits outweigh the risks in the current picture.",
+        explanation,
       }
     }
     return {
@@ -294,11 +528,16 @@ export function decisionSignalFromWeights(params: { proWeights: Weight[]; conWei
     }
   }
 
-  if (magnitude > 0.28 || maxCon === 5) {
+  // Negative cases
+  if (magnitude > 0.3 || (maxCon === 5 && maxPro <= 3)) {
+    const ctx = normalize(contextText + " " + dilemmaText)
+    const explanation = ctx.includes("stress") || ctx.includes("health")
+      ? "The downsides pose significant risks to your well-being and priorities."
+      : "The downsides outweigh the benefits in the current picture."
     return {
       kind: "strongly_negative",
       title: "Strongly negative",
-      explanation: "The downsides outweigh the benefits in the current picture.",
+      explanation,
     }
   }
   return {
@@ -313,5 +552,10 @@ export function answersMapToContextText(answers: Map<string, string>): string {
     .map((v) => v.trim())
     .filter(Boolean)
     .join("\n")
+}
+
+// Helper to extract dilemma text from context
+export function extractDilemmaText(dilemmaText: string): string {
+  return dilemmaText.trim()
 }
 
