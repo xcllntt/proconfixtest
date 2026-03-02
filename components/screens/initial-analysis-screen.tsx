@@ -20,6 +20,7 @@ export function InitialAnalysisScreen() {
     setFinalAnalysis,
     goBackToQuestions,
     answers,
+    dilemmaText,
   } = useDecision()
 
   const [isLoading, setIsLoading] = useState(false)
@@ -79,8 +80,20 @@ export function InitialAnalysisScreen() {
           {isYesNo && yesNoAnalysis ? (
             <div className="space-y-6">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <WeightedProConList type="pros" items={yesNoAnalysis.pros} title="Pros" contextText={contextText} />
-                <WeightedProConList type="cons" items={yesNoAnalysis.cons} title="Cons" contextText={contextText} />
+                <WeightedProConList
+                  type="pros"
+                  items={yesNoAnalysis.pros}
+                  title="Pros"
+                  contextText={contextText}
+                  dilemmaText={dilemmaText}
+                />
+                <WeightedProConList
+                  type="cons"
+                  items={yesNoAnalysis.cons}
+                  title="Cons"
+                  contextText={contextText}
+                  dilemmaText={dilemmaText}
+                />
               </div>
 
               <DecisionSignalCard
@@ -88,6 +101,7 @@ export function InitialAnalysisScreen() {
                   proItems: yesNoAnalysis.pros,
                   conItems: yesNoAnalysis.cons,
                   contextText,
+                  dilemmaText,
                 })}
               />
             </div>
@@ -105,6 +119,7 @@ export function InitialAnalysisScreen() {
                       title="Pros"
                       compact
                       contextText={contextText}
+                      dilemmaText={dilemmaText}
                       deemphasize={(twoOptionAnalysis.option_a?.pros || []).length <= 2}
                     />
                     <WeightedProConList
@@ -113,6 +128,7 @@ export function InitialAnalysisScreen() {
                       title="Cons"
                       compact
                       contextText={contextText}
+                      dilemmaText={dilemmaText}
                       deemphasize={(twoOptionAnalysis.option_a?.cons || []).length <= 2}
                     />
                   </div>
@@ -121,6 +137,7 @@ export function InitialAnalysisScreen() {
                       proItems: twoOptionAnalysis.option_a?.pros || [],
                       conItems: twoOptionAnalysis.option_a?.cons || [],
                       contextText,
+                      dilemmaText,
                     })}
                   />
                 </div>
@@ -137,6 +154,7 @@ export function InitialAnalysisScreen() {
                       title="Pros"
                       compact
                       contextText={contextText}
+                      dilemmaText={dilemmaText}
                       deemphasize={(twoOptionAnalysis.option_b?.pros || []).length <= 2}
                     />
                     <WeightedProConList
@@ -145,6 +163,7 @@ export function InitialAnalysisScreen() {
                       title="Cons"
                       compact
                       contextText={contextText}
+                      dilemmaText={dilemmaText}
                       deemphasize={(twoOptionAnalysis.option_b?.cons || []).length <= 2}
                     />
                   </div>
@@ -153,6 +172,7 @@ export function InitialAnalysisScreen() {
                       proItems: twoOptionAnalysis.option_b?.pros || [],
                       conItems: twoOptionAnalysis.option_b?.cons || [],
                       contextText,
+                      dilemmaText,
                     })}
                   />
                 </div>

@@ -11,6 +11,7 @@ export function WeightedProConList({
   title,
   compact = false,
   contextText = "",
+  dilemmaText = "",
   showSummary = true,
   deemphasize = false,
 }: {
@@ -19,20 +20,21 @@ export function WeightedProConList({
   title: string
   compact?: boolean
   contextText?: string
+  dilemmaText?: string
   showSummary?: boolean
   deemphasize?: boolean
 }) {
   const isPros = type === "pros"
 
   const weighted = React.useMemo(() => {
-    const w = weightItems({ type, items, contextText })
+    const w = weightItems({ type, items, contextText, dilemmaText })
 
     // Help users spot what matters most quickly: bubble stronger signals up.
     if (items.length >= 4) {
       return [...w].sort((a, b) => (b.weight - a.weight) || (a.originalIndex - b.originalIndex))
     }
     return w
-  }, [type, items, contextText])
+  }, [type, items, contextText, dilemmaText])
 
   const weights = React.useMemo(() => weighted.map((w) => w.weight), [weighted])
   const summary = React.useMemo(() => summarizeSection({ type, weights }), [type, weights])
@@ -80,9 +82,29 @@ export function WeightedProConList({
   )
 }
 
-export function decisionSignalForProConPair(params: { proItems: string[]; conItems: string[]; contextText?: string }) {
-  const proWeights = weightItems({ type: "pros", items: params.proItems, contextText: params.contextText }).map((w) => w.weight)
-  const conWeights = weightItems({ type: "cons", items: params.conItems, contextText: params.contextText }).map((w) => w.weight)
-  return decisionSignalFromWeights({ proWeights, conWeights })
+export function decisionSignalForProConPair(params: {
+  proItems: string[]
+  conItems: string[]
+  contextText?: string
+  dilemmaText?: string
+}) {
+  const proWeights = weightItems({
+    type: "pros",
+    items: params.proItems,
+    contextText: params.contextText,
+    dilemmaText: params.dilemmaText,
+  }).map((w) => w.weight)
+  const conWeights = weightItems({
+    type: "cons",
+    items: params.conItems,
+    contextText: params.contextText,
+    dilemmaText: params.dilemmaText,
+  }).map((w) => w.weight)
+  return decisionSignalFromWeights({
+    proWeights,
+    conWeights,
+    contextText: params.contextText,
+    dilemmaText: params.dilemmaText,
+  })
 }
 
