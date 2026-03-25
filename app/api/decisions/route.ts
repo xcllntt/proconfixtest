@@ -38,7 +38,12 @@ export async function POST(request: Request) {
 
     if (decisionError) {
       console.error("[v0] Error creating decision in Supabase:", decisionError)
-      return NextResponse.json({ error: `Database error: ${decisionError.message}` }, { status: 500 })
+      const msg = decisionError.message || "Unknown Supabase error"
+      const hint =
+        /fetch failed/i.test(msg) || /network/i.test(msg)
+          ? "Supabase could not be reached. Verify `NEXT_PUBLIC_SUPABASE_URL` in `.env.local`, ensure you restarted the dev server after changing env, and check your network/DNS/proxy."
+          : ""
+      return NextResponse.json({ error: `Database error: ${msg}${hint ? `\n\n${hint}` : ""}` }, { status: 500 })
     }
 
     console.log("[v0] Decision created successfully:", decision.id)
@@ -62,7 +67,12 @@ export async function POST(request: Request) {
 
     if (questionsError) {
       console.error("[v0] Error saving questions:", questionsError)
-      return NextResponse.json({ error: `Database error: ${questionsError.message}` }, { status: 500 })
+      const msg = questionsError.message || "Unknown Supabase error"
+      const hint =
+        /fetch failed/i.test(msg) || /network/i.test(msg)
+          ? "Supabase could not be reached while saving questions. Verify `NEXT_PUBLIC_SUPABASE_URL` in `.env.local`, ensure dev server restart, and check network/DNS/proxy."
+          : ""
+      return NextResponse.json({ error: `Database error: ${msg}${hint ? `\n\n${hint}` : ""}` }, { status: 500 })
     }
 
     console.log("[v0] Questions saved successfully")

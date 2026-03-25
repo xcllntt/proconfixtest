@@ -1,8 +1,8 @@
 import { createBrowserClient } from "@supabase/ssr"
 
 export function createClient() {
-  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
-  const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+  const supabaseUrl = (process.env.NEXT_PUBLIC_SUPABASE_URL || "").trim()
+  const supabaseAnonKey = (process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || "").trim()
 
   if (!supabaseUrl || !supabaseAnonKey) {
     throw new Error(
@@ -10,6 +10,17 @@ export function createClient() {
       "Check your Supabase project's API settings to find these values\n\n" +
       "https://supabase.com/dashboard/project/_/settings/api"
     )
+  }
+
+  // Fail fast on placeholder-like values to avoid confusing "fetch failed" errors.
+  if (/your_supabase|your-project|example\.com|placeholder/i.test(supabaseUrl)) {
+    throw new Error(
+      "Supabase URL looks like a placeholder. Update `.env.local` with your real Project URL (e.g. https://xxxx.supabase.co) and restart the dev server."
+    )
+  }
+
+  if (!/^https?:\/\//i.test(supabaseUrl)) {
+    throw new Error("Supabase URL must start with `http://` or `https://`. Check `NEXT_PUBLIC_SUPABASE_URL` in `.env.local`.")
   }
 
   return createBrowserClient(supabaseUrl, supabaseAnonKey)
